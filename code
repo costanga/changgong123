@@ -1,0 +1,93 @@
+아두이노
+void setup() {
+  Serial.begin(9600);
+  pinMode(A0, INPUT); // 온도 센서를 A0 핀에 연결
+  pinMode(A1, INPUT); // 조도 센서를 A1 핀에 연결
+  pinMode(13, OUTPUT); // 13번 핀을 출력으로 설정
+}
+
+double convertToCelsius(int analogValue) {
+  double voltage = (analogValue / 1024.0) * 5.0;
+  double temperature = (voltage - 0.5) * 100.0;
+  return temperature;
+}
+
+void loop() {
+  int lightSensorValue = analogRead(A1); // 조도 센서 값을 읽음
+  double temperatureSensorValue = analogRead(A0); // 온도 센서 값을 읽음
+
+  double temperature = convertToCelsius(temperatureSensorValue);
+
+  if (Serial.available() > 0) {
+    int command = Serial.parseInt(); // 정수 값을 읽음
+
+    if (command == 1) {
+      digitalWrite(13, HIGH); // LED를 켬
+    } else if (command == 0) {
+      digitalWrite(13, LOW); // LED를 끔
+    }
+  }
+
+  // 시리얼로 온도와 조도 값을 보냄
+  Serial.print(lightSensorValue);
+  Serial.print(",");
+  Serial.println(temperature);
+  delay(500);
+}
+
+프로세싱
+import processing.serial.*;
+import processing.net.*;
+
+Serial myPort;
+float temperature;
+int lightLevel;
+Server server;
+Client client;
+
+void setup() {
+  size(400, 400);
+  myPort = new Serial(this, "COM6", 9600);
+  server = new Server(this, 321);
+  client = null;
+}
+
+void draw() {
+  if (myPort.available() > 0) {
+    String data = myPort.readStringUntil('\n');
+    if (data != null) {
+      String[] values = split(data, ',');
+      if (values.length >= 2) {
+        temperature = float(values[0]);
+        lightLevel = int(values[1]);
+      }
+    }
+  }
+
+  if (server != null) {
+    if (client == null) {
+      client = server.available();
+    }
+  }
+
+  background(255);
+  fill(0);
+  textSize(20);
+  text("Temperature: " + temperature + "°C", 20, 50);
+  text("Light Level: " + lightLevel, 20, 100);
+
+  if (client != null && client.available() > 0) {
+    String clientData = client.readStringUntil('\n');
+
+    if (clientData != null) {
+      clientData = clientData.trim();
+      println("Received data from client: " + clientData);
+
+      if (clientData.equals("1")) {
+        myPort.write("1");
+      } else if (clientData.equals("0")) {
+        myPort.write("0");
+      }
+    }
+  }
+}
